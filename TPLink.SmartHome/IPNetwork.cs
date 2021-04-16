@@ -1,6 +1,6 @@
 ﻿// https://github.com/aspnet/BasicMiddleware/blob/master/src/Microsoft.AspNetCore.HttpOverrides/IPNetwork.cs
-// Copyright (c) .NET Foundation. All rights reserved.
-// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+// Copyright (c) .NET Foundation. All rights reserved. Licensed under the Apache
+// License, Version 2.0. See License.txt in the project root for license information.
 
 // This class was taken from ASP.NET Core source repo and amended for my purposes.
 // ToDo: Cleanup and submit PR in original repo, propose move to CoreFX
@@ -11,116 +11,134 @@ using System.Net.Sockets;
 
 namespace TPLink.SmartHome
 {
-    public class IPNetwork
-    {
-        public IPNetwork(IPAddress prefix, int prefixLength)
-        {
-            Prefix = prefix;
-            PrefixLength = prefixLength;
-            PrefixBytes = Prefix.GetAddressBytes();
-            Mask = CreateMask();
-        }
+	public class IPNetwork
+	{
+		#region Public Properties
 
-        public IPAddress Prefix { get; }
+		public IPAddress BroadcastAddress
+		{
+			get
+			{
+				byte[] bytes = Prefix.GetAddressBytes();
+				for (int i = 0; i < PrefixBytes.Length; i++)
+				{
+					bytes[i] |= (byte)~Mask[i];
+				}
 
-        private byte[] PrefixBytes { get; }
+				return new IPAddress(bytes);
+			}
+		}
 
-        /// <summary>
-        /// The CIDR notation of the subnet mask 
-        /// </summary>
-        public int PrefixLength { get; }
+		public IPAddress Prefix { get; }
 
-        private byte[] Mask { get; }
+		/// <summary>
+		/// The CIDR notation of the subnet mask
+		/// </summary>
+		public int PrefixLength { get; }
 
-        public IPAddress BroadcastAddress
-        {
-            get
-            {
-                byte[] bytes = Prefix.GetAddressBytes();
-                for (int i = 0; i < PrefixBytes.Length; i++)
-                {
-                    bytes[i] |= (byte)~Mask[i];
-                }
+		#endregion
 
-                return new IPAddress(bytes);
-            }
-        }
+		#region Private Properties
 
-        public bool Contains(IPAddress address)
-        {
-            if (Prefix.AddressFamily != address.AddressFamily)
-            {
-                return false;
-            }
+		private byte[] Mask { get; }
+		private byte[] PrefixBytes { get; }
 
-            var addressBytes = address.GetAddressBytes();
-            for (int i = 0; i < PrefixBytes.Length && Mask[i] != 0; i++)
-            {
-                if (PrefixBytes[i] != (addressBytes[i] & Mask[i]))
-                {
-                    return false;
-                }
-            }
+		#endregion
 
-            return true;
-        }
+		#region Public Constructors
 
-        private byte[] CreateMask()
-        {
-            var mask = new byte[PrefixBytes.Length];
-            int remainingBits = PrefixLength;
-            int i = 0;
-            while (remainingBits >= 8)
-            {
-                mask[i] = 0xFF;
-                i++;
-                remainingBits -= 8;
-            }
-            if (remainingBits > 0)
-            {
-                mask[i] = (byte)(0xFF << (8 - remainingBits));
-            }
+		public IPNetwork(IPAddress prefix, int prefixLength)
+		{
+			Prefix = prefix;
+			PrefixLength = prefixLength;
+			PrefixBytes = Prefix.GetAddressBytes();
+			Mask = CreateMask();
+		}
 
-            return mask;
-        }
+		#endregion
 
-        public static IPNetwork Parse(string network)
-        {
-            if (string.IsNullOrEmpty(network))
-            {
-                throw new ArgumentException();
-            }
+		#region Public Methods
 
-            string[] networkParts = network.Split('/');
-            if (networkParts.Length > 2)
-            {
-                throw new FormatException();
-            }
+		public static IPNetwork Parse(string network)
+		{
+			if (string.IsNullOrEmpty(network))
+			{
+				throw new ArgumentException();
+			}
 
-            IPAddress networkAddress = IPAddress.Parse(networkParts[0]);
-            int prefixlength;
-            if (networkParts.Length > 1)
-            {
-                prefixlength = int.Parse(networkParts[1]);
-            }
-            else
-            {
-                switch (networkAddress.AddressFamily)
-                {
-                    case AddressFamily.InterNetwork:
-                        prefixlength = 32;
-                        break;
+			string[] networkParts = network.Split('/');
+			if (networkParts.Length > 2)
+			{
+				throw new FormatException();
+			}
 
-                    case AddressFamily.InterNetworkV6:
-                        prefixlength = 128;
-                        break;
+			IPAddress networkAddress = IPAddress.Parse(networkParts[0]);
+			int prefixlength;
+			if (networkParts.Length > 1)
+			{
+				prefixlength = int.Parse(networkParts[1]);
+			}
+			else
+			{
+				switch (networkAddress.AddressFamily)
+				{
+					case AddressFamily.InterNetwork:
+						prefixlength = 32;
+						break;
 
-                    default:
-                        throw new NotSupportedException();
-                }
-            }
+					case AddressFamily.InterNetworkV6:
+						prefixlength = 128;
+						break;
 
-            return new IPNetwork(networkAddress, prefixlength);
-        }
-    }
+					default:
+						throw new NotSupportedException();
+				}
+			}
+
+			return new IPNetwork(networkAddress, prefixlength);
+		}
+		public bool Contains(IPAddress address)
+		{
+			if (Prefix.AddressFamily != address.AddressFamily)
+			{
+				return false;
+			}
+
+			var addressBytes = address.GetAddressBytes();
+			for (int i = 0; i < PrefixBytes.Length && Mask[i] != 0; i++)
+			{
+				if (PrefixBytes[i] != (addressBytes[i] & Mask[i]))
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		#endregion
+
+		#region Private Methods
+
+		private byte[] CreateMask()
+		{
+			var mask = new byte[PrefixBytes.Length];
+			int remainingBits = PrefixLength;
+			int i = 0;
+			while (remainingBits >= 8)
+			{
+				mask[i] = 0xFF;
+				i++;
+				remainingBits -= 8;
+			}
+			if (remainingBits > 0)
+			{
+				mask[i] = (byte)(0xFF << (8 - remainingBits));
+			}
+
+			return mask;
+		}
+
+		#endregion
+	}
 }
